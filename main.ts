@@ -31,7 +31,10 @@ import { join } from "node:path";
 
 const LINE = "A stranger's laundry snaps on the line, and for a second someone else's Tuesday is waving at me.";
 
-const OUTPUT_DIR = process.env.MAKEFUN_OUTPUT_DIR ?? "/output";
+const OUTPUT_DIR_RAW = process.env.MAKEFUN_OUTPUT_DIR;
+// An explicitly empty MAKEFUN_OUTPUT_DIR would resolve entry.txt against
+// the working directory instead of /output; treat empty as unset.
+const OUTPUT_DIR = OUTPUT_DIR_RAW ? OUTPUT_DIR_RAW : "/output";
 const OUTPUT_FILE = join(OUTPUT_DIR, "entry.txt");
 
 function fail(message: string): never {
@@ -39,12 +42,15 @@ function fail(message: string): never {
 }
 
 // Self-check: the gate requires 1-200 UTF-8 characters, a single line, and
-// more than whitespace.
+// more than whitespace. Control characters are also rejected: the gate reads
+// the file as text and the judge reads it as a sentence, so a stray control
+// byte would corrupt the read even if the character count passed.
 const chars = [...LINE].length;
 if (chars < 1 || chars > 200) fail(`line is ${chars} characters, must be 1-200`);
 if (LINE !== LINE.trim()) fail("line has leading or trailing whitespace");
 if (/\r|\n/.test(LINE)) fail("line must be a single line");
 if (!/\S/.test(LINE)) fail("line must not be only whitespace");
+if (/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/.test(LINE)) fail("line contains a control character");
 
 mkdirSync(OUTPUT_DIR, { recursive: true });
 
